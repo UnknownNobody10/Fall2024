@@ -1,0 +1,13 @@
+import java.util.Scanner;
+public class ComputeVolume {
+  public static void main(String[] args){
+    Scanner input = new Scanner(System.in);
+    System.out.print("Enter the radius and length of the cylinder to compute volume: ");
+    double radius = inputInt();
+    double length = inputInt();
+    area = radius * radius * 3.14;
+    volume  = area * length;
+    System.out.println("The area of the cylinder is " + area + " and the volume is " + volume);
+  }
+}
+    
