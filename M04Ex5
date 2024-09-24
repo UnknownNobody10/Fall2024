@@ -1,0 +1,19 @@
+import java.util.Scanner;
+public class ShowCurrentTime {
+  public static void main (String[] args){
+
+    Scanner input = new Scanner(System.in);
+    System.out.println("Enter timezone offset to GMT: ");
+    double TMZ = input.nextDouble();
+    double displaytime = currenthour + TMZ;
+    long totalMilliseconds = System.currentTimeMillis();
+    long totalseconds = totalMilliseconds / 1000;
+    long currentsecond = totalseconds % 60;
+    long totalminutes = totalseconds / 60;
+    long currentminute = totalminutes % 60;
+    long totalhours = totalminutes / 60;
+    long currenthour = totalhours % 24;
+    
+    System.out.println("Current time is " + displaytime + ":" + currentminute + ":" + currentsecond);
+  }
+}
