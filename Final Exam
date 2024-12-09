@@ -1,0 +1,691 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyMr4c2Gu14tWyX32L/Eqvu5",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/UnknownNobody10/Fall2024/blob/main/Final%20Exam\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": 1,
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 196
+        },
+        "id": "FYpo-nHf_yx6",
+        "outputId": "f1e48d8e-c552-44e9-c022-4f88a835657c"
+      },
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<SparkContext master=local[*] appName=pyspark-shell>"
+            ],
+            "text/html": [
+              "\n",
+              "        <div>\n",
+              "            <p><b>SparkContext</b></p>\n",
+              "\n",
+              "            <p><a href=\"http://fc8d13d95065:4040\">Spark UI</a></p>\n",
+              "\n",
+              "            <dl>\n",
+              "              <dt>Version</dt>\n",
+              "                <dd><code>v3.3.0</code></dd>\n",
+              "              <dt>Master</dt>\n",
+              "                <dd><code>local[*]</code></dd>\n",
+              "              <dt>AppName</dt>\n",
+              "                <dd><code>pyspark-shell</code></dd>\n",
+              "            </dl>\n",
+              "        </div>\n",
+              "        "
+            ]
+          },
+          "metadata": {},
+          "execution_count": 1
+        }
+      ],
+      "source": [
+        "#Step 1: Install Dependencies\n",
+        "!apt-get install openjdk-8-jdk-headless -qq > /dev/null\n",
+        "!wget -q https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz\n",
+        "!tar xf spark-3.3.0-bin-hadoop3.tgz\n",
+        "!pip install -q findspark\n",
+        "\n",
+        "#Step 2: Add environment variables\n",
+        "import os\n",
+        "os.environ[\"JAVA_HOME\"] = \"/usr/lib/jvm/java-8-openjdk-amd64\"\n",
+        "os.environ[\"SPARK_HOME\"] = \"spark-3.3.0-bin-hadoop3\"\n",
+        "os.environ[\"HADOOP_HOME\"] = os.environ[\"SPARK_HOME\"]\n",
+        "\n",
+        "#these are new enviromental variables\n",
+        "os.environ[\"PYSPARK_DRIVER_PYTHON\"] = \"jupyter\"\n",
+        "os.environ[\"PYSPARK_DRIVER_PYTHON_OPTS\"] = \"notebook\"\n",
+        "os.environ[\"PYSPARK_SUBMIT_ARGS\"] = \"--packages graphframes:graphframes:0.8.1-spark3.0-s_2.12 pyspark-shell\"\n",
+        "#Step 3: Initialize Pyspark\n",
+        "import findspark\n",
+        "findspark.init()\n",
+        "#creating spark context\n",
+        "from pyspark.sql import SparkSession\n",
+        "spark = SparkSession.builder.master(\"local[*]\").getOrCreate()\n",
+        "sc = spark.sparkContext\n",
+        "sc"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import yfinance as yf # Imports\n",
+        "import pandas as pd\n",
+        "from pyspark.sql import SparkSession\n",
+        "from pyspark.sql.functions import col, to_date, avg, year, month, dayofweek, max, count\n",
+        "def datasets():\n",
+        "  #List of tickers (stocks) to download\n",
+        "  tickers = [\"AMZN\",\"WMT\", \"COST\",]\n",
+        "\n",
+        "  #getting data from Janury 1, 2010 to December 31, 2023\n",
+        "  start_date = \"2010-01-01\"\n",
+        "  end_date = \"2023-12-31\"\n",
+        "\n",
+        "  # Download each file\n",
+        "  for ticker in tickers:\n",
+        "      file =  yf.download(ticker, start=start_date, end=end_date)\n",
+        "      file.to_csv(f\"{ticker}.csv\") #save to csv file\n",
+        "\n",
+        "\n",
+        "datasets()\n",
+        "\n",
+        "spark = SparkSession.builder.master(\"local[*]\").getOrCreate()\n",
+        "\n",
+        "df1 = spark.read.csv(\"AMZN.csv\", header=True, inferSchema=True)\n",
+        "df2 = spark.read.csv(\"WMT.csv\", header=True, inferSchema=True)\n",
+        "df3 = spark.read.csv(\"COST.csv\", header=True, inferSchema=True)\n",
+        "df1.show()\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "Bfi7Wi3w_6Oy",
+        "outputId": "2a688b63-a1f1-4a59-9174-106bce7cd995"
+      },
+      "execution_count": 18,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stderr",
+          "text": [
+            "[*********************100%***********************]  1 of 1 completed\n",
+            "[*********************100%***********************]  1 of 1 completed\n",
+            "[*********************100%***********************]  1 of 1 completed\n"
+          ]
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----------+-----------------+-----------------+-----------------+------------------+------------------+---------+\n",
+            "|     Price|        Adj Close|            Close|             High|               Low|              Open|   Volume|\n",
+            "+----------+-----------------+-----------------+-----------------+------------------+------------------+---------+\n",
+            "|    Ticker|             AMZN|             AMZN|             AMZN|              AMZN|              AMZN|     AMZN|\n",
+            "|      Date|             null|             null|             null|              null|              null|     null|\n",
+            "|2010-01-04|6.695000171661377|6.695000171661377| 6.83050012588501|6.6570000648498535|            6.8125|151998000|\n",
+            "|2010-01-05|6.734499931335449|6.734499931335449| 6.77400016784668|6.5904998779296875| 6.671500205993652|177038000|\n",
+            "|2010-01-06|6.612500190734863|6.612500190734863|6.736499786376953| 6.582499980926514| 6.730000019073486|143576000|\n",
+            "|2010-01-07|              6.5|              6.5|6.616000175476074| 6.440000057220459| 6.600500106811523|220604000|\n",
+            "|2010-01-08|6.676000118255615|6.676000118255615|6.684000015258789| 6.451499938964844|6.5279998779296875|196610000|\n",
+            "|2010-01-11|6.515500068664551|6.515500068664551|6.639999866485596|6.4604997634887695|  6.63100004196167|175588000|\n",
+            "|2010-01-12|6.367499828338623|6.367499828338623|6.491000175476074| 6.327499866485596|  6.44950008392334|181926000|\n",
+            "|2010-01-13| 6.45550012588501| 6.45550012588501|6.485499858856201| 6.287499904632568| 6.394999980926514|214464000|\n",
+            "|2010-01-14|6.367499828338623|6.367499828338623|6.519000053405762| 6.320000171661377| 6.456999778747559|195498000|\n",
+            "|2010-01-15| 6.35699987411499| 6.35699987411499|6.482500076293945| 6.353000164031982| 6.459000110626221|307530000|\n",
+            "|2010-01-19|6.380499839782715|6.380499839782715|6.400000095367432|6.2164998054504395| 6.315499782562256|177852000|\n",
+            "|2010-01-20|6.289000034332275|6.289000034332275|6.460000038146973| 6.254000186920166| 6.356500148773193|181494000|\n",
+            "|2010-01-21|6.330999851226807|6.330999851226807| 6.40749979019165|              6.25|  6.36299991607666|199412000|\n",
+            "|2010-01-22|6.071499824523926|6.071499824523926|6.383500099182129| 6.038000106811523|  6.28000020980835|231378000|\n",
+            "|2010-01-25|6.015500068664551|6.015500068664551|6.113999843597412| 5.906000137329102| 6.105000019073486|240478000|\n",
+            "|2010-01-26|5.973999977111816|5.973999977111816| 6.14900016784668| 5.953000068664551|6.0279998779296875|191180000|\n",
+            "|2010-01-27|6.137499809265137|6.137499809265137|6.166500091552734| 5.940000057220459| 6.051499843597412|295306000|\n",
+            "|2010-01-28|6.301499843597412|6.301499843597412|6.360000133514404| 6.139999866485596| 6.221499919891357|545862000|\n",
+            "+----------+-----------------+-----------------+-----------------+------------------+------------------+---------+\n",
+            "only showing top 20 rows\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "df1 = df1.withColumn('Price', to_date(col('Price').cast('date')))\n",
+        "df2 = df2.withColumn('Price', to_date(col('Price').cast('date')))\n",
+        "df3 = df3.withColumn('Price', to_date(col('Price').cast('date')))\n",
+        "\n",
+        "#Get year from date and extrapolate closing price\n",
+        "df1_avg = df1.withColumn('Year', year(col('Price'))).groupBy('Year').agg(avg('Close').alias('Avg_Close'))\n",
+        "df2_avg = df2.withColumn('Year', year(col('Price'))).groupBy('Year').agg(avg('Close').alias('Avg_Close'))\n",
+        "df3_avg = df3.withColumn('Year', year(col('Price'))).groupBy('Year').agg(avg('Close').alias('Avg_Close'))\n",
+        "\n",
+        "df1_avg.show()\n",
+        "df2_avg.show()\n",
+        "df3_avg.show()\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "0WRdrVrfAdv6",
+        "outputId": "7b276e8a-d229-44a0-fb8e-c33c50f88e71"
+      },
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----+------------------+\n",
+            "|Year|         Avg_Close|\n",
+            "+----+------------------+\n",
+            "|2018| 82.08630852870257|\n",
+            "|2015| 23.90691463909452|\n",
+            "|2023| 121.3728003540039|\n",
+            "|2022| 126.0988188055882|\n",
+            "|2013|14.901579402741932|\n",
+            "|null|              null|\n",
+            "|2014|16.627551608615452|\n",
+            "|2019|  89.4594602433462|\n",
+            "|2020|134.04275452383894|\n",
+            "|2012| 11.01518200302124|\n",
+            "|2016| 34.97615664345877|\n",
+            "|2010| 6.957019838075789|\n",
+            "|2011| 9.833601175792634|\n",
+            "|2017| 48.40835056076962|\n",
+            "|2021|167.19334932357546|\n",
+            "+----+------------------+\n",
+            "\n",
+            "+----+------------------+\n",
+            "|Year|         Avg_Close|\n",
+            "+----+------------------+\n",
+            "|2018|30.789946939840735|\n",
+            "|2015|24.163703691391717|\n",
+            "|2023| 51.02494670104981|\n",
+            "|2022| 46.07671986918051|\n",
+            "|2013|25.106838635035924|\n",
+            "|null|              null|\n",
+            "|2014| 25.77579362808712|\n",
+            "|2019|36.135185234130375|\n",
+            "|2020|  43.2004479268794|\n",
+            "|2012| 22.40503998565674|\n",
+            "|2016|23.182354541051957|\n",
+            "|2010|17.667420629471067|\n",
+            "|2011| 18.11781747000558|\n",
+            "|2017| 26.32079682977076|\n",
+            "|2021| 47.21712955595955|\n",
+            "+----+------------------+\n",
+            "\n",
+            "+----+------------------+\n",
+            "|Year|         Avg_Close|\n",
+            "+----+------------------+\n",
+            "|2018|208.81438260629358|\n",
+            "|2015|147.83535718160962|\n",
+            "|2023| 535.5726813964844|\n",
+            "|2022|510.21601557636643|\n",
+            "|2013|111.79841253492567|\n",
+            "|null|              null|\n",
+            "|2014|121.58297632610987|\n",
+            "|2019| 262.1952774411156|\n",
+            "|2020| 329.6471543142447|\n",
+            "|2012| 92.05560006713867|\n",
+            "|2016|154.35353112599208|\n",
+            "|2010| 60.66980148497082|\n",
+            "|2011|  78.7432937924824|\n",
+            "|2017|  167.407449912265|\n",
+            "|2021| 420.5209522550068|\n",
+            "+----+------------------+\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "# Extrapolate most active trading month\n",
+        "df1_active_month = df1.withColumn('Month', month(col('Price'))).groupBy('Month').agg(count('Price').alias('Days_Active'))\n",
+        "df2_active_month = df2.withColumn('Month', month(col('Price'))).groupBy('Month').agg(count('Price').alias('Days_Active'))\n",
+        "df3_active_month = df3.withColumn('Month', month(col('Price'))).groupBy('Month').agg(count('Price').alias('Days_Active'))\n",
+        "\n",
+        "#Organize data and show top result\n",
+        "df1_active_month.orderBy(col('Days_Active'), ascending=False).show(1)\n",
+        "df2_active_month.orderBy(col('Days_Active'), ascending=False).show(1)\n",
+        "df3_active_month.orderBy(col('Days_Active'), ascending=False).show(1)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "hFM-PTmKGEas",
+        "outputId": "8a71ba47-43bc-4058-8f81-3702ae5b1f91"
+      },
+      "execution_count": 31,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+-----+-----------+\n",
+            "|Month|Days_Active|\n",
+            "+-----+-----------+\n",
+            "|    8|        312|\n",
+            "+-----+-----------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+-----+-----------+\n",
+            "|Month|Days_Active|\n",
+            "+-----+-----------+\n",
+            "|    8|        312|\n",
+            "+-----+-----------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+-----+-----------+\n",
+            "|Month|Days_Active|\n",
+            "+-----+-----------+\n",
+            "|    8|        312|\n",
+            "+-----+-----------+\n",
+            "only showing top 1 row\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Most active trading day for stocks\n",
+        "df1_active_day = df1.withColumn('DayOfWeek', dayofweek(col('Price'))).groupBy('DayOfWeek').agg(count('Price').alias('Days_Active'))\n",
+        "df2_active_day = df2.withColumn('DayOfWeek', dayofweek(col('Price'))).groupBy('DayOfWeek').agg(count('Price').alias('Days_Active'))\n",
+        "df3_active_day = df3.withColumn('DayOfWeek', dayofweek(col('Price'))).groupBy('DayOfWeek').agg(count('Price').alias('Days_Active'))\n",
+        "\n",
+        "#Organize data and display result\n",
+        "df1_active_day.orderBy(col('Days_Active'), ascending=False).show(1)\n",
+        "df2_active_day.orderBy(col('Days_Active'), ascending=False).show(1)\n",
+        "df3_active_day.orderBy(col('Days_Active'), ascending=False).show(1)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "F83amUmfG8Wy",
+        "outputId": "7e36c341-bc43-47c1-f14b-13f2df9ad6c9"
+      },
+      "execution_count": 29,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+---------+-----------+\n",
+            "|DayOfWeek|Days_Active|\n",
+            "+---------+-----------+\n",
+            "|        3|        723|\n",
+            "+---------+-----------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+---------+-----------+\n",
+            "|DayOfWeek|Days_Active|\n",
+            "+---------+-----------+\n",
+            "|        3|        723|\n",
+            "+---------+-----------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+---------+-----------+\n",
+            "|DayOfWeek|Days_Active|\n",
+            "+---------+-----------+\n",
+            "|        3|        723|\n",
+            "+---------+-----------+\n",
+            "only showing top 1 row\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Extrapolate daily returns\n",
+        "df1_return = df1.withColumn('Return', (col('Close') - col('Open')) / col('Open'))\n",
+        "df2_return = df2.withColumn('Return', (col('Close') - col('Open')) / col('Open'))\n",
+        "df3_return = df3.withColumn('Return', (col('Close') - col('Open')) / col('Open'))\n",
+        "\n",
+        "#Show results\n",
+        "df1_highetst = df1_return.orderBy(col('Return'), ascending=False).show(1)\n",
+        "df2_highetst = df2_return.orderBy(col('Return'), ascending=False).show(1)\n",
+        "df3_highetst = df3_return.orderBy(col('Return'), ascending=False).show(1)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "1H9Vdhz1Kh6j",
+        "outputId": "24d9eac1-82fc-4e6d-b1b4-0c25f5093018"
+      },
+      "execution_count": 32,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----------+----------------+----------------+-----------------+-----------------+-----------------+---------+------------------+\n",
+            "|     Price|       Adj Close|           Close|             High|              Low|             Open|   Volume|            Return|\n",
+            "+----------+----------------+----------------+-----------------+-----------------+-----------------+---------+------------------+\n",
+            "|2010-07-23|5.94350004196167|5.94350004196167|5.964000225067139|5.289999961853027|5.296500205993652|848422000|0.1221561051269018|\n",
+            "+----------+----------------+----------------+-----------------+-----------------+-----------------+---------+------------------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+----------+----------------+-----------------+-----------------+-----------------+------------------+--------+-------------------+\n",
+            "|     Price|       Adj Close|            Close|             High|              Low|              Open|  Volume|             Return|\n",
+            "+----------+----------------+-----------------+-----------------+-----------------+------------------+--------+-------------------+\n",
+            "|2020-03-02|35.9156608581543|38.62666702270508|38.79999923706055|35.76333236694336|35.866668701171875|51222600|0.07695162170003889|\n",
+            "+----------+----------------+-----------------+-----------------+-----------------+------------------+--------+-------------------+\n",
+            "only showing top 1 row\n",
+            "\n",
+            "+----------+------------------+----------------+------------------+------------------+-----+-------+-------------------+\n",
+            "|     Price|         Adj Close|           Close|              High|               Low| Open| Volume|             Return|\n",
+            "+----------+------------------+----------------+------------------+------------------+-----+-------+-------------------+\n",
+            "|2020-03-17|282.72796630859375|306.989990234375|307.19000244140625|286.29998779296875|289.0|7170600|0.06224910115700692|\n",
+            "+----------+------------------+----------------+------------------+------------------+-----+-------+-------------------+\n",
+            "only showing top 1 row\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Amazon change of more or less than $2\n",
+        "df1_diff = df1.withColumn('Price_Change', col('Open') - col('Close'))\n",
+        "df1_diff.filter(col('Price_Change') > 2).show()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "sHUofCMtLVbQ",
+        "outputId": "2bc72511-931d-4dc2-e349-301cabfce8c9"
+      },
+      "execution_count": 37,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----------+-----------------+-----------------+------------------+------------------+------------------+---------+------------------+\n",
+            "|     Price|        Adj Close|            Close|              High|               Low|              Open|   Volume|      Price_Change|\n",
+            "+----------+-----------------+-----------------+------------------+------------------+------------------+---------+------------------+\n",
+            "|2015-07-24|26.47100067138672|26.47100067138672|29.028499603271484|26.467500686645508|28.949499130249023|438188000|2.4784984588623047|\n",
+            "|2018-02-01|             69.5|             69.5| 72.99400329589844| 69.25700378417969|             72.25|182276000|              2.75|\n",
+            "|2018-02-02|71.49749755859375|71.49749755859375|  74.9000015258789| 70.69999694824219| 73.86949920654297|222514000|2.3720016479492188|\n",
+            "|2018-02-08| 67.5250015258789| 67.5250015258789|           71.6875| 67.49700164794922| 71.48400115966797|171572000|3.9589996337890625|\n",
+            "|2018-03-23|74.77799987792969|74.77799987792969| 77.45099639892578| 74.76799774169922| 76.95050048828125|160120000|2.1725006103515625|\n",
+            "|2018-03-27|74.85250091552734|74.85250091552734| 78.79850006103516| 74.11599731445312| 78.62000274658203|139992000|3.7675018310546875|\n",
+            "|2018-04-02|68.59950256347656|68.59950256347656| 71.06800079345703|             67.75| 70.88099670410156|209272000|    2.281494140625|\n",
+            "|2018-04-24|73.00450134277344|73.00450134277344|  76.9749984741211| 72.42250061035156| 76.79000091552734|149894000|3.7854995727539062|\n",
+            "|2018-04-27|78.63099670410156|78.63099670410156| 81.90499877929688| 78.36949920654297| 81.70050048828125|261064000|3.0695037841796875|\n",
+            "|2018-06-27|83.02549743652344|83.02549743652344| 85.59750366210938|              83.0| 85.40550231933594| 97444000|   2.3800048828125|\n",
+            "|2018-07-27| 90.8635025024414| 90.8635025024414| 94.00250244140625| 90.32649993896484| 93.80249786376953|193620000| 2.938995361328125|\n",
+            "|2018-07-30|88.96099853515625|88.96099853515625|  91.4749984741211|  88.3010025024414| 91.36650085449219|131246000|2.4055023193359375|\n",
+            "|2018-09-05|99.74099731445312|99.74099731445312|102.01899719238281| 99.49449920654297|101.90550231933594|164412000|2.1645050048828125|\n",
+            "|2018-09-06|97.91549682617188|97.91549682617188|           100.375|   96.760498046875|100.32550048828125|149774000| 2.410003662109375|\n",
+            "|2018-09-17|95.40149688720703|95.40149688720703| 97.84100341796875| 94.37049865722656| 97.73650360107422|141004000|2.3350067138671875|\n",
+            "|2018-10-10|87.76249694824219|87.76249694824219|  92.9280014038086| 87.72049713134766| 92.89450073242188|219778000|5.1320037841796875|\n",
+            "|2018-10-18|88.53600311279297|88.53600311279297| 91.50749969482422| 88.39350128173828| 91.07450103759766|117480000|2.5384979248046875|\n",
+            "|2018-10-24|83.20999908447266|83.20999908447266|   88.885498046875|  82.8280029296875| 88.68499755859375|138568000| 5.474998474121094|\n",
+            "|2018-10-29|76.94400024414062|76.94400024414062| 83.28700256347656|             74.75|              83.0|277322000| 6.055999755859375|\n",
+            "|2018-11-12|81.84249877929688|81.84249877929688| 85.42749786376953| 81.50050354003906| 84.91200256347656|136124000|3.0695037841796875|\n",
+            "+----------+-----------------+-----------------+------------------+------------------+------------------+---------+------------------+\n",
+            "only showing top 20 rows\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Highest closing day of each\n",
+        "df1_highest_close = df1.orderBy(col('Close'), ascending=False).show(2)\n",
+        "df2_highest_close = df2.orderBy(col('Close'), ascending=False).show(2)\n",
+        "df3_highest_close = df3.orderBy(col('Close'), ascending=False).show(2)\n",
+        "\n",
+        "print(\"Amazon highest: \", df1_highest_close)\n",
+        "print(\"Walmart highest: \", df2_highest_close)\n",
+        "print(\"Costco highest: \", df3_highest_close)\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "IWKVQWy4M3jw",
+        "outputId": "9fa73b42-98d1-4b2b-d534-e21782dd4b25"
+      },
+      "execution_count": 39,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----------+-----------------+-----------------+-----+-----------------+------------------+--------+\n",
+            "|     Price|        Adj Close|            Close| High|              Low|              Open|  Volume|\n",
+            "+----------+-----------------+-----------------+-----+-----------------+------------------+--------+\n",
+            "|      null|             AMZN|             AMZN| AMZN|             AMZN|              AMZN|    AMZN|\n",
+            "|2023-04-11|99.91999816894531|99.91999816894531|101.0|99.01000213623047|100.80000305175781|60417800|\n",
+            "+----------+-----------------+-----------------+-----+-----------------+------------------+--------+\n",
+            "only showing top 2 rows\n",
+            "\n",
+            "+----------+-----------------+-----------------+-----------------+------------------+-----------------+--------+\n",
+            "|     Price|        Adj Close|            Close|             High|               Low|             Open|  Volume|\n",
+            "+----------+-----------------+-----------------+-----------------+------------------+-----------------+--------+\n",
+            "|      null|              WMT|              WMT|              WMT|               WMT|              WMT|     WMT|\n",
+            "|2023-11-15|55.83954620361328|56.59333419799805|56.64666748046875|55.836666107177734|56.12666702270508|35769900|\n",
+            "+----------+-----------------+-----------------+-----------------+------------------+-----------------+--------+\n",
+            "only showing top 2 rows\n",
+            "\n",
+            "+----------+-----------------+----------------+-----------------+-----------------+-----------------+-------+\n",
+            "|     Price|        Adj Close|           Close|             High|              Low|             Open| Volume|\n",
+            "+----------+-----------------+----------------+-----------------+-----------------+-----------------+-------+\n",
+            "|      null|             COST|            COST|             COST|             COST|             COST|   COST|\n",
+            "|2012-09-06|73.79540252685547|99.9800033569336|99.98999786376953|98.72000122070312|98.72000122070312|1462500|\n",
+            "+----------+-----------------+----------------+-----------------+-----------------+-----------------+-------+\n",
+            "only showing top 2 rows\n",
+            "\n",
+            "Amazon highest:  None\n",
+            "Walmart highest:  None\n",
+            "Costco highest:  None\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Stock less than $50\n",
+        "df1_low = df1.filter(col('Close') < 50).count()\n",
+        "df2_low = df2.filter(col('Close') < 50).count()\n",
+        "df3_low = df3.filter(col('Close') < 50).count()\n",
+        "\n",
+        "#Print result\n",
+        "print(\"Amazon: \", df1_low, \"days below $50\")\n",
+        "print(\"Walmart: \", df2_low, \"days below $50\")\n",
+        "print(\"Costco: \", df3_low, \"days below $50\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "NQylBtOKNm0H",
+        "outputId": "fbcba04e-1deb-42db-ae9d-6c498dc4897c"
+      },
+      "execution_count": 42,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Amazon:  1944 days below $50\n",
+            "Walmart:  3299 days below $50\n",
+            "Costco:  0 days below $50\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Max value for each year\n",
+        "df1_max = df1.groupBy(year(col('Price')).alias('Year')).agg(max('Close').alias('Max_Close'))\n",
+        "df2_max = df2.groupBy(year(col('Price')).alias('Year')).agg(max('Close').alias('Max_Close'))\n",
+        "df3_max = df3.groupBy(year(col('Price')).alias('Year')).agg(max('Close').alias('Max_Close'))\n",
+        "\n",
+        "#Show results\n",
+        "df1_max.show()\n",
+        "df2_max.show()\n",
+        "df3_max.show()"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "VIqDu4K2OGZw",
+        "outputId": "d518c050-c188-49f9-c967-fc7a0b1c29c5"
+      },
+      "execution_count": 43,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "+----+------------------+\n",
+            "|Year|         Max_Close|\n",
+            "+----+------------------+\n",
+            "|null|              AMZN|\n",
+            "|2010|  9.23799991607666|\n",
+            "|2011| 9.998499870300293|\n",
+            "|2012| 9.982999801635742|\n",
+            "|2013|20.219499588012695|\n",
+            "|2014|20.352500915527344|\n",
+            "|2015| 34.69850158691406|\n",
+            "|2016| 42.21799850463867|\n",
+            "|2017|59.791500091552734|\n",
+            "|2018| 99.90499877929688|\n",
+            "|2019| 99.72450256347656|\n",
+            "|2020| 99.87950134277344|\n",
+            "|2021|186.57049560546875|\n",
+            "|2022| 98.94000244140625|\n",
+            "|2023| 99.91999816894531|\n",
+            "+----+------------------+\n",
+            "\n",
+            "+----+------------------+\n",
+            "|Year|         Max_Close|\n",
+            "+----+------------------+\n",
+            "|null|               WMT|\n",
+            "|2010|18.663333892822266|\n",
+            "|2011|19.996667861938477|\n",
+            "|2012| 25.71666717529297|\n",
+            "|2013| 27.06999969482422|\n",
+            "|2014| 29.18000030517578|\n",
+            "|2015|30.156667709350586|\n",
+            "|2016|24.766666412353516|\n",
+            "|2017|33.206668853759766|\n",
+            "|2018|36.516666412353516|\n",
+            "|2019|40.426666259765625|\n",
+            "|2020| 50.93000030517578|\n",
+            "|2021|50.483333587646484|\n",
+            "|2022|53.290000915527344|\n",
+            "|2023| 56.59333419799805|\n",
+            "+----+------------------+\n",
+            "\n",
+            "+----+------------------+\n",
+            "|Year|         Max_Close|\n",
+            "+----+------------------+\n",
+            "|null|              COST|\n",
+            "|2010|  72.8499984741211|\n",
+            "|2011| 88.05999755859375|\n",
+            "|2012|  99.9800033569336|\n",
+            "|2013| 99.44999694824219|\n",
+            "|2014|144.14999389648438|\n",
+            "|2015| 168.8699951171875|\n",
+            "|2016| 169.0399932861328|\n",
+            "|2017|192.72999572753906|\n",
+            "|2018| 244.2100067138672|\n",
+            "|2019| 305.2099914550781|\n",
+            "|2020| 391.7699890136719|\n",
+            "|2021|   567.77001953125|\n",
+            "|2022| 608.0499877929688|\n",
+            "|2023|  681.239990234375|\n",
+            "+----+------------------+\n",
+            "\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "#Correlation between Walmart and Amazon\n",
+        "df1 = df1.withColumnRenamed('Close', 'Close_AMZN')\n",
+        "df2 = df2.withColumnRenamed('Close', 'Close_WMT')\n",
+        "corr = df1.join(df2, on='Price').stat.corr('Close_AMZN', 'Close_WMT')\n",
+        "print(corr)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 512
+        },
+        "id": "9gKDoortOjH9",
+        "outputId": "5218b957-d26d-4c6b-8158-8cd4387d0b4c"
+      },
+      "execution_count": 46,
+      "outputs": [
+        {
+          "output_type": "error",
+          "ename": "IllegalArgumentException",
+          "evalue": "requirement failed: Currently correlation calculation for columns with dataType string not supported.",
+          "traceback": [
+            "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+            "\u001b[0;31mIllegalArgumentException\u001b[0m                  Traceback (most recent call last)",
+            "\u001b[0;32m<ipython-input-46-56255d9a791c>\u001b[0m in \u001b[0;36m<cell line: 4>\u001b[0;34m()\u001b[0m\n\u001b[1;32m      2\u001b[0m \u001b[0mdf1\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdf1\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mwithColumnRenamed\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'Close'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m'Close_AMZN'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      3\u001b[0m \u001b[0mdf2\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdf2\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mwithColumnRenamed\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'Close'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m'Close_WMT'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m----> 4\u001b[0;31m \u001b[0mcorr\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdf1\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mjoin\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mdf2\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mon\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;34m'Price'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mstat\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mcorr\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'Close_AMZN'\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0;34m'Close_WMT'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      5\u001b[0m \u001b[0mprint\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mcorr\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/content/spark-3.3.0-bin-hadoop3/python/pyspark/sql/dataframe.py\u001b[0m in \u001b[0;36mcorr\u001b[0;34m(self, col1, col2, method)\u001b[0m\n\u001b[1;32m   3504\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   3505\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0mcorr\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol1\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol2\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmethod\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mOptional\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mstr\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m->\u001b[0m \u001b[0mfloat\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 3506\u001b[0;31m         \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mdf\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mcorr\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mcol1\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol2\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmethod\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m   3507\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   3508\u001b[0m     \u001b[0mcorr\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__doc__\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mDataFrame\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mcorr\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m__doc__\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/content/spark-3.3.0-bin-hadoop3/python/pyspark/sql/dataframe.py\u001b[0m in \u001b[0;36mcorr\u001b[0;34m(self, col1, col2, method)\u001b[0m\n\u001b[1;32m   2881\u001b[0m                 \u001b[0;34m+\u001b[0m \u001b[0;34m\"coefficient is supported.\"\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   2882\u001b[0m             )\n\u001b[0;32m-> 2883\u001b[0;31m         \u001b[0;32mreturn\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0m_jdf\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mstat\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mcorr\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mcol1\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol2\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mmethod\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m   2884\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   2885\u001b[0m     \u001b[0;32mdef\u001b[0m \u001b[0mcov\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mself\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol1\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mcol2\u001b[0m\u001b[0;34m:\u001b[0m \u001b[0mstr\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;34m->\u001b[0m \u001b[0mfloat\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32mspark-3.3.0-bin-hadoop3/python/lib/py4j-0.10.9.5-src.zip/py4j/java_gateway.py\u001b[0m in \u001b[0;36m__call__\u001b[0;34m(self, *args)\u001b[0m\n\u001b[1;32m   1319\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m   1320\u001b[0m         \u001b[0manswer\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mself\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mgateway_client\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0msend_command\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mcommand\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m-> 1321\u001b[0;31m         return_value = get_return_value(\n\u001b[0m\u001b[1;32m   1322\u001b[0m             answer, self.gateway_client, self.target_id, self.name)\n\u001b[1;32m   1323\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;32m/content/spark-3.3.0-bin-hadoop3/python/pyspark/sql/utils.py\u001b[0m in \u001b[0;36mdeco\u001b[0;34m(*a, **kw)\u001b[0m\n\u001b[1;32m    194\u001b[0m                 \u001b[0;31m# Hide where the exception came from that shows a non-Pythonic\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    195\u001b[0m                 \u001b[0;31m# JVM exception message.\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 196\u001b[0;31m                 \u001b[0;32mraise\u001b[0m \u001b[0mconverted\u001b[0m \u001b[0;32mfrom\u001b[0m \u001b[0;32mNone\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    197\u001b[0m             \u001b[0;32melse\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    198\u001b[0m                 \u001b[0;32mraise\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+            "\u001b[0;31mIllegalArgumentException\u001b[0m: requirement failed: Currently correlation calculation for columns with dataType string not supported."
+          ]
+        }
+      ]
+    }
+  ]
+}
